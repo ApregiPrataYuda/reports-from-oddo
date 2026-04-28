@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\OutstandingDispatchWithFreightCostController;
 use App\Http\Controllers\Api\OutstandingPiController;
 use App\Http\Controllers\Api\OutstandingDoController;
 use App\Http\Controllers\Api\OutstandingDoWithCostController;
+use App\Http\Controllers\Api\SalesInvoiceRegisterEci;
 
 use App\Http\Controllers\Api\SalesInvoices;
 
@@ -201,5 +202,13 @@ Route::prefix('odoo')->group(function () {
         Route::get('/get/si', [SalesInvoices::class, 'CombinedInvoiceSales']);
         Route::get('/sales-invoices/export', [SalesInvoices::class, 'ExportExcel']);
     });
+});
 
+
+Route::prefix('odoo')->group(function () {
+    Route::prefix('web')->group(function () {
+        Route::get('/get/header/dataset/call_kw', [SalesInvoiceRegisterEci::class, 'AccountMove']);
+        Route::get('/get/detail/dataset/call_kw', [SalesInvoiceRegisterEci::class, 'AccountMoveLine']);
+        Route::get('/dataset/call_kw', [SalesInvoiceRegisterEci::class, 'CombinedInvoiceSales']);
+        });
 });
