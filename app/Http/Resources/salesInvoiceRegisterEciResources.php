@@ -20,6 +20,7 @@ class salesInvoiceRegisterEciResources extends JsonResource
             'ref'                             => $data['ref'] ?? null,
             'invoice_payment_term_id'         => $data['invoice_payment_term_id'] ?? null,
             'currency_id'                     => $data['currency_id'] ?? null,
+            'company_id'                     => $data['company_id'] ?? null,
             'move_type'                       => $data['move_type'] ?? null,
             'state'                           => $data['state'] ?? null,
             'payment_state'                   => $data['payment_state'] ?? null,

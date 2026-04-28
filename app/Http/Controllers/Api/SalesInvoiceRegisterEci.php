@@ -449,6 +449,7 @@ public function CombinedInvoiceSales(InvoiceSalesRequestValidationIndex $request
             'invoice_date',
             'invoice_origin',
             'ref',
+            'company_id',
             'company_currency_id',
             'currency_id',
             'invoice_payment_term_id',
