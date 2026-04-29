@@ -42,6 +42,7 @@ public function rules(): array
         'offset'     => 'nullable|integer',
         'start_date' => 'nullable|date_format:Y-m-d',
         'end_date'   => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+        'search'     => 'nullable|string',
     ];
 }
 

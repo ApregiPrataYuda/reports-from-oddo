@@ -394,14 +394,241 @@ class SalesInvoiceRegisterEci extends Controller
 // }
 
 
+// oke banget
+// public function CombinedInvoiceSales(InvoiceSalesRequestValidationIndex $request)
+// {
+//     $validated = $request->validated();
+
+//     // 1. Parameter Filter & Pagination
+//     $startDate = $validated['start_date'] ?? null;
+//     $endDate   = $validated['end_date'] ?? null;
+
+//     // Validasi agar start & end harus berpasangan
+//     if (($startDate && !$endDate) || (!$startDate && $endDate)) {
+//         return ApiResponse::error(
+//             "start_date dan end_date harus dikirim bersamaan",
+//             422
+//         );
+//     }
+
+//     // Jika ada filter tanggal -> ambil full data
+//     if ($startDate && $endDate) {
+//         $limit = 0;
+//         $offset = 0;
+//         $isFullData = true;
+//     } else {
+//         // Pagination normal
+//         $limit = (int) ($validated['limit'] ?? 10);
+//         $offset = (int) ($validated['offset'] ?? 0);
+//         $isFullData = false;
+//     }
+
+//     // 2. Domain Header
+//     $domain = [
+//         ['move_type', '=', 'out_invoice'],
+//         ['state', '=', 'posted'] // hanya invoice valid/final
+//     ];
+
+//     if ($startDate && $endDate) {
+//         $domain[] = ['invoice_date', '>=', $startDate];
+//         $domain[] = ['invoice_date', '<=', $endDate];
+//     }
+
+//     // 3. Ambil Total Header
+//     $total = (int) $this->odoo->searchCount('account.move', $domain);
+
+//     // Ambil Header Invoice
+//     $headers = $this->odoo->searchRead(
+//         'account.move',
+//         $domain,
+//         [
+//             'id',
+//             'name',
+//             'invoice_partner_display_name',
+//             'partner_id',
+//             'invoice_date',
+//             'invoice_origin',
+//             'ref',
+//             'company_id',
+//             'company_currency_id',
+//             'currency_id',
+//             'invoice_payment_term_id',
+//             'amount_untaxed',
+//             'amount_untaxed_signed',
+//             'amount_tax',
+//             'amount_total',
+//             'amount_total_in_currency_signed',
+//             'payment_state',
+//             'state',
+//             'move_type',
+//             'invoice_line_ids'
+//         ],
+//         $limit,
+//         $offset
+//     );
+
+//     // Jika kosong
+//     if (empty($headers)) {
+//         return ApiResponse::paginate(
+//             new salesInvoiceRegisterEciResourcesCollection(
+//                 collect([]),
+//                 0,
+//                 $limit ?: 10,
+//                 $offset
+//             ),
+//             "Data not found"
+//         );
+//     }
+
+//     // 4. Ambil Semua Move ID
+//     $moveIds = collect($headers)
+//         ->pluck('id')
+//         ->filter()
+//         ->map(fn($id) => (int) $id)
+//         ->values()
+//         ->toArray();
+
+//     // 5. Ambil Semua Detail Line
+//     $allLines = $this->odoo->searchRead(
+//         'account.move.line',
+//         [
+//             ['move_id', 'in', $moveIds],
+//             ['display_type', '=', 'product']
+//         ],
+//         [
+//             'id',
+//             'move_id',
+//             'name',
+//             'product_id',
+//             'quantity',
+//             'price_unit',
+//             'discount',
+//             'tax_ids',
+//             'price_subtotal',
+//             'price_total'
+//         ],
+//         0,
+//         0
+//     );
+
+//     // 6. Ambil Product Category
+//     $productIds = collect($allLines)
+//         ->pluck('product_id.0')
+//         ->filter()
+//         ->unique()
+//         ->map(fn($id) => (int) $id)
+//         ->values()
+//         ->toArray();
+
+//     $productMap = collect();
+
+//     if (!empty($productIds)) {
+//         $products = $this->odoo->searchRead(
+//             'product.product',
+//             [['id', 'in', $productIds]],
+//             ['id', 'categ_id'],
+//             0,
+//             0
+//         );
+
+//         $productMap = collect($products)->keyBy('id');
+//     }
+
+//     // 7. Ambil Tax Name
+//     $taxIds = collect($allLines)
+//         ->pluck('tax_ids')
+//         ->flatten()
+//         ->filter()
+//         ->unique()
+//         ->map(fn($id) => (int) $id)
+//         ->values()
+//         ->toArray();
+
+//     $taxMap = collect();
+
+//     if (!empty($taxIds)) {
+//         $taxes = $this->odoo->searchRead(
+//             'account.tax',
+//             [['id', 'in', $taxIds]],
+//             ['id', 'name'],
+//             0,
+//             0
+//         );
+
+//         $taxMap = collect($taxes)->keyBy('id');
+//     }
+
+//     // 8. Mapping Lines
+//     $linesMapped = collect($allLines)->map(function ($line) use ($productMap, $taxMap) {
+//         // Product Category
+//         $productId = $line['product_id'][0] ?? null;
+
+//         $line['product_category'] = $productId
+//             ? ($productMap->get($productId)['categ_id'] ?? null)
+//             : null;
+
+//         // Format Tax
+//         $line['tax_formatted'] = collect($line['tax_ids'] ?? [])
+//             ->map(function ($taxId) use ($taxMap) {
+//                 return [
+//                     (int) $taxId,
+//                     $taxMap->get($taxId)['name'] ?? 'Pajak Tidak Diketahui'
+//                 ];
+//             })
+//             ->values()
+//             ->toArray();
+
+//         return $line;
+//     });
+
+//     // 9. Group Lines by Move ID
+//     $groupedLines = $linesMapped->groupBy(function ($line) {
+//         return is_array($line['move_id'])
+//             ? (int) ($line['move_id'][0] ?? 0)
+//             : (int) $line['move_id'];
+//     });
+
+//     // 10. Merge Header + Lines
+//     $records = collect($headers)->map(function ($header) use ($groupedLines) {
+//         $header['lines'] = $groupedLines->get((int) $header['id'], collect([]))->values();
+//         return $header;
+//     });
+
+//     // 11. Collection Limit
+//     $collectionLimit = ($limit === 0) ? $total : $limit;
+
+//     // 12. Response
+//     return ApiResponse::paginate(
+//         new salesInvoiceRegisterEciResourcesCollection(
+//             $records,
+//             $total,
+//             $collectionLimit,
+//             $offset
+//         ),
+//         $isFullData
+//             ? "Success Get Full Sales Invoice Register ECI By Date Range"
+//             : "Success Get Sales Invoice Register ECI"
+//     );
+// }
+
+
+
+
+
+
+
+
+
+
 
 public function CombinedInvoiceSales(InvoiceSalesRequestValidationIndex $request)
 {
+    // 1. Parameter Filter, Pagination & Search
     $validated = $request->validated();
 
-    // 1. Parameter Filter & Pagination
     $startDate = $validated['start_date'] ?? null;
     $endDate   = $validated['end_date'] ?? null;
+    $search    = $validated['search'] ?? null;
 
     // Validasi agar start & end harus berpasangan
     if (($startDate && !$endDate) || (!$startDate && $endDate)) {
@@ -411,204 +638,137 @@ public function CombinedInvoiceSales(InvoiceSalesRequestValidationIndex $request
         );
     }
 
-    // Jika ada filter tanggal -> ambil full data
-    if ($startDate && $endDate) {
-        $limit = 0;
-        $offset = 0;
-        $isFullData = true;
-    } else {
-        // Pagination normal
-        $limit = (int) ($validated['limit'] ?? 10);
-        $offset = (int) ($validated['offset'] ?? 0);
-        $isFullData = false;
-    }
-
-    // 2. Domain Header
+    // 2. Domain Header Dasar
     $domain = [
         ['move_type', '=', 'out_invoice'],
-        ['state', '=', 'posted'] // hanya invoice valid/final
+        ['state', '=', 'posted']
     ];
 
+    // Filter Tanggal
     if ($startDate && $endDate) {
         $domain[] = ['invoice_date', '>=', $startDate];
         $domain[] = ['invoice_date', '<=', $endDate];
     }
 
-    // 3. Ambil Total Header
+    /**
+     * FITUR SEARCH
+     * Menggunakan Polish Notation Odoo: ['|', '|', A, B, C] berarti (A OR B OR C)
+     */
+    if ($search) {
+        $domain[] = '|'; 
+        $domain[] = '|'; 
+        $domain[] = ['name', 'ilike', $search];
+        $domain[] = ['invoice_partner_display_name', 'ilike', $search];
+        $domain[] = ['ref', 'ilike', $search];
+    }
+
+    // Penentuan Limit & Offset
+    // Full data hanya jika filter tanggal ada DAN tidak sedang mencari (search)
+    if ($startDate && $endDate && !$search) {
+        $limit = 0;
+        $offset = 0;
+        $isFullData = true;
+    } else {
+        $limit = (int) ($validated['limit'] ?? 10);
+        $offset = (int) ($validated['offset'] ?? 0);
+        $isFullData = false;
+    }
+
+    // 3. Hitung Total Data (untuk pagination info)
     $total = (int) $this->odoo->searchCount('account.move', $domain);
 
-    // Ambil Header Invoice
+    // 4. Ambil Header Invoice
     $headers = $this->odoo->searchRead(
         'account.move',
         $domain,
         [
-            'id',
-            'name',
-            'invoice_partner_display_name',
-            'partner_id',
-            'invoice_date',
-            'invoice_origin',
-            'ref',
-            'company_id',
-            'company_currency_id',
-            'currency_id',
-            'invoice_payment_term_id',
-            'amount_untaxed',
-            'amount_untaxed_signed',
-            'amount_tax',
-            'amount_total',
-            'amount_total_in_currency_signed',
-            'payment_state',
-            'state',
-            'move_type',
-            'invoice_line_ids'
+            'id', 'name', 'invoice_partner_display_name', 'partner_id',
+            'invoice_date', 'invoice_origin', 'ref', 'company_id',
+            'company_currency_id', 'currency_id', 'invoice_payment_term_id',
+            'amount_untaxed', 'amount_untaxed_signed', 'amount_tax',
+            'amount_total', 'amount_total_in_currency_signed',
+            'payment_state', 'state', 'move_type', 'invoice_line_ids'
         ],
         $limit,
         $offset
     );
 
-    // Jika kosong
+    // Jika data tidak ditemukan
     if (empty($headers)) {
         return ApiResponse::paginate(
             new salesInvoiceRegisterEciResourcesCollection(
-                collect([]),
-                0,
-                $limit ?: 10,
-                $offset
+                collect([]), 0, $limit ?: 10, $offset
             ),
             "Data not found"
         );
     }
 
-    // 4. Ambil Semua Move ID
-    $moveIds = collect($headers)
-        ->pluck('id')
-        ->filter()
-        ->map(fn($id) => (int) $id)
-        ->values()
-        ->toArray();
+    // 5. Ambil Semua Move ID untuk query detail lines
+    $moveIds = collect($headers)->pluck('id')->filter()->map(fn($id) => (int) $id)->values()->toArray();
 
-    // 5. Ambil Semua Detail Line
+    // 6. Ambil Semua Detail Line (Product Lines)
     $allLines = $this->odoo->searchRead(
         'account.move.line',
-        [
-            ['move_id', 'in', $moveIds],
-            ['display_type', '=', 'product']
-        ],
-        [
-            'id',
-            'move_id',
-            'name',
-            'product_id',
-            'quantity',
-            'price_unit',
-            'discount',
-            'tax_ids',
-            'price_subtotal',
-            'price_total'
-        ],
-        0,
-        0
+        [['move_id', 'in', $moveIds], ['display_type', '=', 'product']],
+        ['id', 'move_id', 'name', 'product_id', 'quantity', 'price_unit', 'discount', 'tax_ids', 'price_subtotal', 'price_total'],
+        0, 0
     );
 
-    // 6. Ambil Product Category
-    $productIds = collect($allLines)
-        ->pluck('product_id.0')
-        ->filter()
-        ->unique()
-        ->map(fn($id) => (int) $id)
-        ->values()
-        ->toArray();
-
+    // 7. Ambil Map Product Category
+    $productIds = collect($allLines)->pluck('product_id.0')->filter()->unique()->map(fn($id) => (int) $id)->values()->toArray();
     $productMap = collect();
-
     if (!empty($productIds)) {
-        $products = $this->odoo->searchRead(
-            'product.product',
-            [['id', 'in', $productIds]],
-            ['id', 'categ_id'],
-            0,
-            0
-        );
-
+        $products = $this->odoo->searchRead('product.product', [['id', 'in', $productIds]], ['id', 'categ_id'], 0, 0);
         $productMap = collect($products)->keyBy('id');
     }
 
-    // 7. Ambil Tax Name
-    $taxIds = collect($allLines)
-        ->pluck('tax_ids')
-        ->flatten()
-        ->filter()
-        ->unique()
-        ->map(fn($id) => (int) $id)
-        ->values()
-        ->toArray();
-
+    // 8. Ambil Map Tax Name
+    $taxIds = collect($allLines)->pluck('tax_ids')->flatten()->filter()->unique()->map(fn($id) => (int) $id)->values()->toArray();
     $taxMap = collect();
-
     if (!empty($taxIds)) {
-        $taxes = $this->odoo->searchRead(
-            'account.tax',
-            [['id', 'in', $taxIds]],
-            ['id', 'name'],
-            0,
-            0
-        );
-
+        $taxes = $this->odoo->searchRead('account.tax', [['id', 'in', $taxIds]], ['id', 'name'], 0, 0);
         $taxMap = collect($taxes)->keyBy('id');
     }
 
-    // 8. Mapping Lines
+    // 9. Mapping & Formating Lines
     $linesMapped = collect($allLines)->map(function ($line) use ($productMap, $taxMap) {
-        // Product Category
         $productId = $line['product_id'][0] ?? null;
-
-        $line['product_category'] = $productId
-            ? ($productMap->get($productId)['categ_id'] ?? null)
-            : null;
-
-        // Format Tax
-        $line['tax_formatted'] = collect($line['tax_ids'] ?? [])
-            ->map(function ($taxId) use ($taxMap) {
-                return [
-                    (int) $taxId,
-                    $taxMap->get($taxId)['name'] ?? 'Pajak Tidak Diketahui'
-                ];
-            })
-            ->values()
-            ->toArray();
+        
+        // Inject Product Category
+        $line['product_category'] = $productId ? ($productMap->get($productId)['categ_id'] ?? null) : null;
+        
+        // Inject Formatted Taxes
+        $line['tax_formatted'] = collect($line['tax_ids'] ?? [])->map(function ($taxId) use ($taxMap) {
+            return [(int) $taxId, $taxMap->get($taxId)['name'] ?? 'Pajak Tidak Diketahui'];
+        })->values()->toArray();
 
         return $line;
     });
 
-    // 9. Group Lines by Move ID
+    // 10. Group Lines berdasarkan Move ID
     $groupedLines = $linesMapped->groupBy(function ($line) {
-        return is_array($line['move_id'])
-            ? (int) ($line['move_id'][0] ?? 0)
-            : (int) $line['move_id'];
+        return is_array($line['move_id']) ? (int) $line['move_id'][0] : (int) $line['move_id'];
     });
 
-    // 10. Merge Header + Lines
+    // 11. Merge Header dengan Lines yang sudah di-group
     $records = collect($headers)->map(function ($header) use ($groupedLines) {
         $header['lines'] = $groupedLines->get((int) $header['id'], collect([]))->values();
         return $header;
     });
 
-    // 11. Collection Limit
+    // 12. Final Response
     $collectionLimit = ($limit === 0) ? $total : $limit;
+    $message = $isFullData 
+        ? "Success Get Full Sales Invoice Register ECI By Date Range" 
+        : "Success Get Sales Invoice Register ECI";
+        
+    if ($search) $message .= " (Filtered by: $search)";
 
-    // 12. Response
     return ApiResponse::paginate(
         new salesInvoiceRegisterEciResourcesCollection(
-            $records,
-            $total,
-            $collectionLimit,
-            $offset
+            $records, $total, $collectionLimit, $offset
         ),
-        $isFullData
-            ? "Success Get Full Sales Invoice Register ECI By Date Range"
-            : "Success Get Sales Invoice Register ECI"
+        $message
     );
 }
-
 }
